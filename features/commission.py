@@ -19,6 +19,7 @@ def calculate_commission_from_sales():
     df = pd.read_sql_query(query, conn)
     conn.close()
 
+    # Handle no data
     if df.empty:
         return pd.DataFrame({"message": ["No matching sales-product data found"]})
 
@@ -29,34 +30,36 @@ def calculate_commission_from_sales():
         sold_date = datetime.strptime(row["sold_date"], "%Y-%m-%d")
         created_date = datetime.strptime(row["created_date"], "%Y-%m-%d")
 
-        # 🚨 Check invalid case
+        # 🚨 Invalid case
         if sold_date < created_date:
-            results.append({
-                "agent_name": row["agent_name"],
-                "agency_name": row["agency_name"],
-                "product": row["product_name"],
-                "days_to_sell": "Invalid",
-                "commission": "Invalid"
-            })
             continue
 
         # ✅ Valid case
         days = (sold_date - created_date).days
 
-        commission = row["base_commission"]
+        # Base commission
+        total_commission = row["base_commission"]
 
+        # Season bonus
         if row["season"] == "Low":
-            commission += 5
+            total_commission += 5
 
+        # Speed bonus
         if days <= 5:
-            commission += 5
+            total_commission += 5
+
+        # 🔥 Commission Split
+        agent_commission = round(total_commission * 0.6, 2)
+        agency_commission = round(total_commission * 0.4, 2)
 
         results.append({
             "agent_name": row["agent_name"],
             "agency_name": row["agency_name"],
             "product": row["product_name"],
             "days_to_sell": days,
-            "commission": commission
+            "total_commission": total_commission,
+            "agent_commission": agent_commission,
+            "agency_commission": agency_commission
         })
 
     return pd.DataFrame(results)

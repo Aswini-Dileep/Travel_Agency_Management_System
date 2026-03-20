@@ -24,10 +24,11 @@ create_tables()
 if not products_exist():
     generate_products(1000)
 
+
 # =========================
 # 📤 UPLOAD SECTION
 # =========================
-st.header("📤 Upload Agent Data")
+st.header("📤 Upload Sales Data")
 
 file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
@@ -58,44 +59,57 @@ st.header("💰 Commission from Sales Data")
 
 if st.button("Calculate Commission from Sales"):
     df = calculate_commission_from_sales()
-
     st.success("Commission calculated successfully!")
     st.dataframe(df.head(50))
 
-
 # =========================
-# 🤖 AI ADVISOR (SCALABLE)
+# 🤖 AI ADVISOR (ADVANCED + SCALABLE)
 # =========================
 st.header("🤖 AI Commission Advisor")
 
-agent_search = st.text_input("Search Agent for AI Advice")
+search_type = st.radio("Search Type", ["Agent", "Agency"])
+search_input = st.text_input(f"Search {search_type} for AI Advice")
 
-if agent_search:
+if search_input:
 
     conn = get_connection()
 
-    df = pd.read_sql_query("""
-        SELECT s.agent_name, s.product_name, s.sold_date,
-               p.product_type, p.season, p.created_date
-        FROM sales s
-        JOIN products p ON s.product_name = p.product_name
-        WHERE LOWER(s.agent_name) LIKE LOWER(?)
-    """, conn, params=(f"%{agent_search}%",))
+    if search_type == "Agent":
+        query = """
+            SELECT DISTINCT s.agent_name, s.agency_name, s.product_name, s.sold_date,
+                   p.product_type, p.season, p.created_date
+            FROM sales s
+            JOIN products p ON s.product_name = p.product_name
+            WHERE LOWER(s.agent_name) LIKE LOWER(?)
+            GROUP BY s.agent_name, s.agency_name, s.product_name, s.sold_date
+            LIMIT 50
+        """
+    else:
+        query = """
+            SELECT DISTINCT s.agent_name, s.agency_name, s.product_name, s.sold_date,
+                   p.product_type, p.season, p.created_date
+            FROM sales s
+            JOIN products p ON s.product_name = p.product_name
+            WHERE LOWER(s.agency_name) LIKE LOWER(?)
+            GROUP BY s.agent_name, s.agency_name, s.product_name, s.sold_date
+            LIMIT 50
+        """
 
+    df = pd.read_sql_query(query, conn, params=(f"%{search_input}%",))
     conn.close()
 
     if df.empty:
-        st.warning("No sales found for this agent")
+        st.warning(f"No records found for this {search_type.lower()}")
     else:
         st.write("Select a sale record:")
 
         selected_index = st.selectbox(
             "Choose record",
             df.index,
-            format_func=lambda i: f"{df.loc[i, 'agent_name']} - {df.loc[i, 'product_name']}"
+            format_func=lambda i: f"{df.iloc[i]['agent_name']} ({df.iloc[i]['agency_name']}) - {df.iloc[i]['product_name']}"
         )
 
-        row = df.loc[selected_index]
+        row = df.iloc[selected_index]
 
         if st.button("Get AI Advice"):
 
@@ -105,7 +119,7 @@ if agent_search:
             created_date = datetime.strptime(row["created_date"], "%Y-%m-%d")
 
             if sold_date < created_date:
-                st.warning("Invalid data")
+                st.warning("Invalid data: sold before product creation")
             else:
                 days = (sold_date - created_date).days
 
@@ -116,3 +130,48 @@ if agent_search:
                 )
 
                 st.info(advice)
+
+# =========================
+# 📊 DASHBOARD
+# =========================
+st.header("📊 Dashboard")
+
+df_dashboard = calculate_commission_from_sales()
+
+if df_dashboard.empty or "message" in df_dashboard.columns:
+    st.warning("No data available for dashboard. Please upload data.")
+else:
+    col1, col2, col3 = st.columns(3)
+
+    total_sales = len(df_dashboard)
+
+    valid_commission = df_dashboard[df_dashboard["total_commission"] != "Invalid"]
+
+    avg_commission = valid_commission["total_commission"].astype(float).mean() if not valid_commission.empty else 0
+    invalid_count = (df_dashboard["days_to_sell"] == "Invalid").sum()
+
+    col1.metric("Total Sales", total_sales)
+    col2.metric("Avg Commission", round(avg_commission, 2))
+    col3.metric("Invalid Records", invalid_count)
+
+    st.subheader("📦 Product Distribution")
+    product_counts = (
+    df_dashboard["product"]
+    .value_counts()
+    .sort_values(ascending=False)
+    .head(10)
+    )
+    st.bar_chart(product_counts)
+
+    st.subheader("💰 Commission Distribution")
+    st.bar_chart(valid_commission["total_commission"].value_counts())
+
+    st.subheader("🏆 Top Performing Agents")
+    top_agents = (
+        valid_commission
+        .groupby("agent_name")["agent_commission"]
+        .sum()
+        .sort_values(ascending=False)
+        .head(5)
+    )
+    st.bar_chart(top_agents)

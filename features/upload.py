@@ -11,6 +11,7 @@ def upload_excel(file):
 
     # 🔥 Clear old data
     cursor.execute("DELETE FROM sales")
+    conn.commit()
 
     for _, row in df.iterrows():
         cursor.execute(

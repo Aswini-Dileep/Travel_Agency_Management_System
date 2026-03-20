@@ -31,7 +31,7 @@ def generate_products(n=1000):
 
         base_commission = random.randint(3, 10)
 
-        created_date = datetime.now() - timedelta(days=random.randint(1, 30))
+        created_date = datetime.now() - timedelta(days=random.randint(1, 90))
 
         cursor.execute("""
         INSERT INTO products (product_name, product_type, season, base_commission, created_date)

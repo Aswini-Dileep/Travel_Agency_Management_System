@@ -7,8 +7,8 @@ def search_agents(query):
     conn = get_connection()
 
     sql = """
-    SELECT agent_name, agency_name
-    FROM agents
+    SELECT DISTINCT agent_name, agency_name
+    FROM sales
     WHERE LOWER(agent_name) LIKE LOWER(?) 
        OR LOWER(agency_name) LIKE LOWER(?)
     """

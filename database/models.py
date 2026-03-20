@@ -1,5 +1,7 @@
 # models.py
 
+from streamlit import cursor
+
 from database.db import get_connection
 
 def create_tables():
@@ -37,6 +39,9 @@ def create_tables():
         sold_date TEXT
     )
     """)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent ON sales(agent_name)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_agency ON sales(agency_name)")
 
     conn.commit()
     conn.close()
