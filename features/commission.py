@@ -49,8 +49,8 @@ def calculate_commission_from_sales():
             total_commission += 5
 
         # 🔥 Commission Split
-        agent_commission = round(total_commission * 0.6, 2)
-        agency_commission = round(total_commission * 0.4, 2)
+        agent_commission = round(total_commission * 0.4, 2)
+        agency_commission = round(total_commission * 0.6, 2)
 
         results.append({
             "agent_name": row["agent_name"],

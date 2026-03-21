@@ -2,6 +2,8 @@
 
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+
 
 from database.models import create_tables
 from database.db import get_connection
@@ -11,167 +13,324 @@ from features.commission import calculate_commission_from_sales
 from features.ai_advisor import get_ai_advice
 from utils.generate_products import generate_products, products_exist
 
-# Page config
+# =========================
+# PAGE CONFIG
+# =========================
 st.set_page_config(page_title="Travel Agency App", layout="wide")
 
-# Title
-st.title("✈️ Travel Agency Management System")
+# =========================
+# 🎨 GLOBAL UI STYLE
+# =========================
+st.markdown("""
+<style>
 
-# Create DB tables
+/* SECTION HEADER */
+.section-header {
+    text-align: center;
+    color: #0077b6;
+    font-weight: bold;
+    font-size: 52px;
+    margin-top: 20px;
+}
+            
+/* SECTION TITLE */
+.section-title {
+    text-align: center;
+    color: #0077b6;
+    font-weight: bold;
+    font-size: 28px;
+    margin-top: 50px;
+    margin-bottom: 20px
+}
+
+/* DESCRIPTION */
+.description {
+    text-align: center;
+    color: black;
+    font-size: 16px;
+    margin-bottom: 30px;
+}
+
+/* CARD */
+.card {
+    background: white;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+/* INPUT */
+.stTextInput input {
+    background-color: #caf0f8;
+    border-radius: 10px;
+}
+
+/* FILE UPLOADER */
+.stFileUploader {
+    background-color: #caf0f8;
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+}
+
+/* BUTTON */
+.stButton>button {
+    background: linear-gradient(to right, #90e0ef, #48cae4);
+    color: white;
+    border-radius: 10px;
+    padding: 10px 20px;
+    border: none;
+    text-align: center;
+}
+
+/* TABLE HEADER */
+thead tr th {
+    background-color: #caf0f8 !important;
+    color: black !important;
+    font-weight: bold;
+}
+
+/* TABLE BODY */
+tbody tr td {
+    color: black !important;
+}
+
+/* RADIO */
+.stRadio > div {
+    display: flex;
+    justify-content: center;
+}
+
+/* METRIC CARDS */
+[data-testid="stMetric"] {
+    background-color: #caf0f8;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# =========================
+# TITLE + DESCRIPTION
+# =========================
+st.markdown('<div class="section-header">Travel Agency Management System</div>', unsafe_allow_html=True)
+st.markdown('<div class="description">Smart commission tracking and AI insights for travel agencies</div>', unsafe_allow_html=True)
+st.divider()
+
+# =========================
+# SETUP
+# =========================
 create_tables()
 
-# Generate products ONLY ONCE
 if not products_exist():
     generate_products(1000)
-
 
 # =========================
 # 📤 UPLOAD SECTION
 # =========================
-st.header("📤 Upload Sales Data")
+st.markdown('<div class="section-title">Upload Sales Data</div>', unsafe_allow_html=True)
 
-file = st.file_uploader("Upload Excel File", type=["xlsx"])
+with st.container():
+    #st.markdown('<div class="card">', unsafe_allow_html=True)
 
-if file is not None:
-    df = upload_excel(file)
-    st.success("Data uploaded successfully!")
-    st.dataframe(df)
+    file = st.file_uploader("Upload Excel File", type=["xlsx"])
+
+    if file is not None:
+        df = upload_excel(file)
+        st.success("Data uploaded successfully!")
+        st.dataframe(df)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+st.divider()
 
 # =========================
 # 🔍 SEARCH SECTION
 # =========================
-st.header("🔍 Search Agents")
+st.markdown('<div class="section-title">Search Agent / Agency</div>', unsafe_allow_html=True)
 
-search_query = st.text_input("Search by Agent or Agency")
+with st.container():
+    #st.markdown('<div class="card">', unsafe_allow_html=True)
 
-if search_query:
-    results = search_agents(search_query)
+    search_query = st.text_input("Search by Agent or Agency")
 
-    if not results.empty:
-        st.dataframe(results)
-    else:
-        st.warning("No results found")
+    if search_query:
+        results = search_agents(search_query)
 
-# =========================
-# 💰 SALES-BASED COMMISSION
-# =========================
-st.header("💰 Commission from Sales Data")
+        if not results.empty:
+            st.dataframe(results)
+        else:
+            st.warning("No results found")
 
-if st.button("Calculate Commission from Sales"):
-    df = calculate_commission_from_sales()
-    st.success("Commission calculated successfully!")
-    st.dataframe(df.head(50))
+    st.markdown('</div>', unsafe_allow_html=True)
+st.divider()
 
 # =========================
-# 🤖 AI ADVISOR (ADVANCED + SCALABLE)
+# 💰 COMMISSION SECTION
 # =========================
-st.header("🤖 AI Commission Advisor")
+st.markdown('<div class="section-title">Sales Commission</div>', unsafe_allow_html=True)
 
-search_type = st.radio("Search Type", ["Agent", "Agency"])
-search_input = st.text_input(f"Search {search_type} for AI Advice")
+with st.container():
+   # st.markdown('<div class="card">', unsafe_allow_html=True)
 
-if search_input:
+    if st.button("Calculate Commission from Sales"):
+        df = calculate_commission_from_sales()
+        st.success("Commission calculated successfully!")
+        st.dataframe(df.head(50))
 
-    conn = get_connection()
+    st.markdown('</div>', unsafe_allow_html=True)
+st.divider()
 
-    if search_type == "Agent":
-        query = """
-            SELECT DISTINCT s.agent_name, s.agency_name, s.product_name, s.sold_date,
-                   p.product_type, p.season, p.created_date
-            FROM sales s
-            JOIN products p ON s.product_name = p.product_name
-            WHERE LOWER(s.agent_name) LIKE LOWER(?)
-            GROUP BY s.agent_name, s.agency_name, s.product_name, s.sold_date
-            LIMIT 50
-        """
-    else:
-        query = """
-            SELECT DISTINCT s.agent_name, s.agency_name, s.product_name, s.sold_date,
-                   p.product_type, p.season, p.created_date
-            FROM sales s
-            JOIN products p ON s.product_name = p.product_name
-            WHERE LOWER(s.agency_name) LIKE LOWER(?)
-            GROUP BY s.agent_name, s.agency_name, s.product_name, s.sold_date
-            LIMIT 50
-        """
+# =========================
+# 🤖 AI ADVISOR
+# =========================
+st.markdown('<div class="section-title">AI Advisor</div>', unsafe_allow_html=True)
 
-    df = pd.read_sql_query(query, conn, params=(f"%{search_input}%",))
-    conn.close()
+with st.container():
+    #st.markdown('<div class="card">', unsafe_allow_html=True)
 
-    if df.empty:
-        st.warning(f"No records found for this {search_type.lower()}")
-    else:
-        st.write("Select a sale record:")
+    search_type = st.radio("Search Type", ["Agent", "Agency"], horizontal=True)
+    search_input = st.text_input(f"Search {search_type}")
 
-        selected_index = st.selectbox(
-            "Choose record",
-            df.index,
-            format_func=lambda i: f"{df.iloc[i]['agent_name']} ({df.iloc[i]['agency_name']}) - {df.iloc[i]['product_name']}"
-        )
+    if search_input:
 
-        row = df.iloc[selected_index]
+        conn = get_connection()
 
-        if st.button("Get AI Advice"):
+        if search_type == "Agent":
+            query = """
+                SELECT DISTINCT s.agent_name, s.agency_name, s.product_name, s.sold_date,
+                       p.product_type, p.season, p.created_date
+                FROM sales s
+                JOIN products p ON s.product_name = p.product_name
+                WHERE LOWER(s.agent_name) LIKE LOWER(?)
+                GROUP BY s.agent_name, s.agency_name, s.product_name, s.sold_date
+                LIMIT 50
+            """
+        else:
+            query = """
+                SELECT DISTINCT s.agent_name, s.agency_name, s.product_name, s.sold_date,
+                       p.product_type, p.season, p.created_date
+                FROM sales s
+                JOIN products p ON s.product_name = p.product_name
+                WHERE LOWER(s.agency_name) LIKE LOWER(?)
+                GROUP BY s.agent_name, s.agency_name, s.product_name, s.sold_date
+                LIMIT 50
+            """
 
-            from datetime import datetime
+        df = pd.read_sql_query(query, conn, params=(f"%{search_input}%",))
+        conn.close()
 
-            sold_date = datetime.strptime(row["sold_date"], "%Y-%m-%d")
-            created_date = datetime.strptime(row["created_date"], "%Y-%m-%d")
+        if not df.empty:
 
-            if sold_date < created_date:
-                st.warning("Invalid data: sold before product creation")
-            else:
-                days = (sold_date - created_date).days
+            selected_index = st.selectbox(
+                "Choose record",
+                df.index,
+                format_func=lambda i: f"{df.iloc[i]['agent_name']} ({df.iloc[i]['agency_name']}) - {df.iloc[i]['product_name']}"
+            )
 
-                advice = get_ai_advice(
-                    row["product_type"],
-                    row["season"],
-                    days
-                )
+            row = df.iloc[selected_index]
 
-                st.info(advice)
+            if st.button("Get AI Advice"):
+
+                from datetime import datetime
+
+                sold_date = datetime.strptime(row["sold_date"], "%Y-%m-%d")
+                created_date = datetime.strptime(row["created_date"], "%Y-%m-%d")
+
+                if sold_date < created_date:
+                    st.warning("Invalid data")
+                else:
+                    days = (sold_date - created_date).days
+
+                    advice = get_ai_advice(
+                        row["product_type"],
+                        row["season"],
+                        days
+                    )
+
+                    st.info(advice)
+
+        else:
+            st.warning("No records found")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+st.divider()
 
 # =========================
 # 📊 DASHBOARD
 # =========================
-st.header("📊 Dashboard")
 
-df_dashboard = calculate_commission_from_sales()
 
-if df_dashboard.empty or "message" in df_dashboard.columns:
-    st.warning("No data available for dashboard. Please upload data.")
-else:
-    col1, col2, col3 = st.columns(3)
+st.markdown('<div class="section-title">Dashboard</div>', unsafe_allow_html=True)
 
-    total_sales = len(df_dashboard)
+with st.container():
 
-    valid_commission = df_dashboard[df_dashboard["total_commission"] != "Invalid"]
+    df_dashboard = calculate_commission_from_sales()
 
-    avg_commission = valid_commission["total_commission"].astype(float).mean() if not valid_commission.empty else 0
-    invalid_count = (df_dashboard["days_to_sell"] == "Invalid").sum()
+    if df_dashboard.empty or "message" in df_dashboard.columns:
+        st.warning("No data available")
+    else:
+        col1, col2, col3 = st.columns(3)
 
-    col1.metric("Total Sales", total_sales)
-    col2.metric("Avg Commission", round(avg_commission, 2))
-    col3.metric("Invalid Records", invalid_count)
+        total_sales = len(df_dashboard)
 
-    st.subheader("📦 Product Distribution")
-    product_counts = (
-    df_dashboard["product"]
-    .value_counts()
-    .sort_values(ascending=False)
-    .head(10)
-    )
-    st.bar_chart(product_counts)
+        valid = df_dashboard[df_dashboard["total_commission"] != "Invalid"]
 
-    st.subheader("💰 Commission Distribution")
-    st.bar_chart(valid_commission["total_commission"].value_counts())
+        avg = valid["total_commission"].astype(float).mean() if not valid.empty else 0
+        invalid = (df_dashboard["days_to_sell"] == "Invalid").sum()
 
-    st.subheader("🏆 Top Performing Agents")
-    top_agents = (
-        valid_commission
-        .groupby("agent_name")["agent_commission"]
-        .sum()
-        .sort_values(ascending=False)
-        .head(5)
-    )
-    st.bar_chart(top_agents)
+        col1.metric("Total Sales", total_sales)
+        col2.metric("Avg Commission", round(avg, 2))
+        col3.metric("Invalid Records", invalid)
+
+        # =========================
+        # 📊 GRAPHS
+        # =========================
+
+        col4, col5 = st.columns(2)
+
+        # 🔹 Product Distribution
+        product_counts = df_dashboard["product"].value_counts().head(10)
+
+        fig1 = px.bar(
+            product_counts,
+            title="Top 10 Products",
+            labels={"value": "Sales Count", "index": "Product"},
+        )
+        fig1.update_layout(title_x=0.5)
+        fig1.update_traces(marker_color="#0077b6")
+
+        col4.plotly_chart(fig1, use_container_width=True)
+
+        # 🔹 Top Agents
+        top_agents = (
+            valid.groupby("agent_name")["agent_commission"]
+            .sum()
+            .sort_values(ascending=False)
+            .head(5)
+        )
+
+        fig2 = px.bar(
+            top_agents,
+            title="Top Performing Agents",
+            labels={"value": "Commission", "agent_name": "Agent"},
+        )
+        fig2.update_layout(title_x=0.5)
+        fig2.update_traces(marker_color="#0077b6")
+
+        col5.plotly_chart(fig2, use_container_width=True)
+
+        # 🔹 Commission Distribution
+        commission_counts = valid["total_commission"].value_counts()
+
+        fig3 = px.bar(
+            commission_counts,
+            title="Commission Distribution",
+            labels={"value": "Frequency", "index": "Commission"},
+        )
+        fig3.update_layout(title_x=0.5)
+        fig3.update_traces(marker_color="#0077b6")
+
+        st.plotly_chart(fig3, use_container_width=True)
